@@ -1,75 +1,105 @@
 package io;
 
 import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
-import graph.Graph;
-import algo.MSTResult;
-
 import java.io.*;
-import java.lang.reflect.Type;
 import java.util.*;
 
+import graph.Graph;
+import graph.Edge;
+import algo.MSTResult;
+
 public class JsonIO {
+
+    // === Input structures ===
+    public static class InputEdge {
+        public String from;
+        public String to;
+        public double weight;
+    }
+
     public static class InputGraph {
-        public String name;
-        public List<String> vertices;
-        public List<Map<String, Object>> edges;
-        public Map<String, Object> meta;
+        public int id;
+        public List<String> nodes;
+        public List<InputEdge> edges;
     }
 
     public static class InputFile {
         public List<InputGraph> graphs;
     }
 
-    public static class OutputItem {
-        public String graph;
-        public int vertexCount;
-        public int edgeCount;
-        public String status;
-        public Map<String, Object> prim;
-        public Map<String, Object> kruskal;
+    // === Output structures ===
+    public static class OutputGraphResult {
+        public int graph_id;
+        public InputStats input_stats;
+        public AlgorithmResult prim;
+        public AlgorithmResult kruskal;
+    }
+
+    public static class InputStats {
+        public int vertices;
+        public int edges;
+    }
+
+    public static class AlgorithmResult {
+        public List<EdgeData> mst_edges = new ArrayList<>();
+        public double total_cost;
+        public int operations_count;
+        public double execution_time_ms;
+    }
+
+    public static class EdgeData {
+        public String from;
+        public String to;
+        public double weight;
     }
 
     public static class OutputFile {
-        public List<OutputItem> results = new ArrayList<>();
+        public List<OutputGraphResult> results = new ArrayList<>();
     }
 
+    // === Read input file ===
     public static List<InputGraph> readInput(String path) throws IOException {
-        try (Reader r = new BufferedReader(new FileReader(path))) {
+        try (Reader reader = new BufferedReader(new FileReader(path))) {
             Gson gson = new Gson();
-            InputFile f = gson.fromJson(r, InputFile.class);
-            return f.graphs == null ? List.of() : f.graphs;
+            InputFile f = gson.fromJson(reader, InputFile.class);
+            if (f == null || f.graphs == null)
+                return List.of();
+            return f.graphs;
         }
     }
 
-    public static void writeOutput(String path, List<OutputItem> items) throws IOException {
-        try (Writer w = new BufferedWriter(new FileWriter(path))) {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            OutputFile out = new OutputFile();
-            out.results = items;
-            gson.toJson(out, w);
-        }
-    }
-
-    public static Graph toGraph(InputGraph ig) {
-        return Graph.fromData(ig.vertices, ig.edges);
-    }
-
-    public static Map<String, Object> packAlgo(String algoName, MSTResult r) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("totalCost", r.totalCost);
-        m.put("timeMs", r.timeMs);
-        m.put("operations", r.operations);
+    // === Convert input graph to Graph object for algorithms ===
+    public static Graph toGraph(InputGraph g) {
+        List<String> vertices = g.nodes;
         List<Map<String, Object>> edges = new ArrayList<>();
-        for (var e : r.mstEdges) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("u", e.getU());
-            row.put("v", e.getV());
-            row.put("w", e.getWeight());
-            edges.add(row);
+        for (InputEdge e : g.edges) {
+            edges.add(Map.of("u", e.from, "v", e.to, "w", e.weight));
         }
-        m.put("mstEdges", edges);
-        m.put("connected", r.connected);
-        return m;
+        return Graph.fromData(vertices, edges);
+    }
+
+    // === Build output JSON ===
+    public static AlgorithmResult packAlgo(MSTResult res, Graph g) {
+        AlgorithmResult ar = new AlgorithmResult();
+        for (graph.Edge e : res.mstEdges) {
+            EdgeData ed = new EdgeData();
+            ed.from = g.getName(e.getU());
+            ed.to = g.getName(e.getV());
+            ed.weight = e.getWeight();
+            ar.mst_edges.add(ed);
+        }
+        ar.total_cost = res.totalCost;
+        ar.operations_count = res.operations.values().stream().mapToInt(Integer::intValue).sum();
+        ar.execution_time_ms = res.timeMs;
+        return ar;
+    }
+
+    public static void writeOutput(String path, List<OutputGraphResult> results) throws IOException {
+        OutputFile file = new OutputFile();
+        file.results = results;
+        try (Writer writer = new FileWriter(path)) {
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            gson.toJson(file, writer);
+        }
     }
 }

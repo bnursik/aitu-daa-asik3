@@ -41,7 +41,7 @@ public class Prim {
         }
 
         long t1 = System.nanoTime();
-        res.timeMs = Math.round((t1 - t0) / 1_000_000.0);
+        res.timeMs = Math.round((t1 - t0) / 1_000);
         res.connected = (visitedCount == n);
         Map<String, Integer> ops = new HashMap<>();
         ops.put("heapOps", heapOps);

@@ -28,7 +28,7 @@ public class Kruskal {
             }
         }
         long t1 = System.nanoTime();
-        res.timeMs = Math.round((t1 - t0) / 1_000_000.0);
+        res.timeMs = Math.round((t1 - t0) / 1_000);
         res.connected = (res.mstEdges.size() == Math.max(0, n - 1));
         Map<String, Integer> ops = new HashMap<>();
         ops.put("sortComparisons", sortComps[0]);
